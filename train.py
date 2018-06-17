@@ -20,7 +20,8 @@ def prepare_dataloaders():
 
     # Define your transforms for the training, validation, and testing sets
     # Rotating, randomly cropping, flipping and normalizing the image
-    data_transforms = transforms.Compose([transforms.RandomRotation(360), transforms.RandomResizedCrop(224),
+    data_transforms = transforms.Compose([transforms.RandomRotation(30), transforms.Resize(300),
+                                          transforms.RandomCrop(224),
                                           transforms.RandomHorizontalFlip(), transforms.ToTensor(),
                                           transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
 
@@ -31,9 +32,9 @@ def prepare_dataloaders():
 
     # Using the image datasets and the transforms, define the dataloaders
     # data will be shuffled for each epoch, 1 images from batch of five in test data
-    trainloader = torch.utils.data.DataLoader(train_data, batch_size=1, shuffle=True)
-    validloader = torch.utils.data.DataLoader(valid_data, batch_size=100)
-    testloader = torch.utils.data.DataLoader(test_data, batch_size=100)
+    trainloader = torch.utils.data.DataLoader(train_data, batch_size=100, shuffle=True)
+    validloader = torch.utils.data.DataLoader(valid_data, batch_size=20, shuffle=True)
+    testloader = torch.utils.data.DataLoader(test_data, batch_size=1, shuffle=True)
 
     print("Total training images are " + str(len(trainloader)))
     print("Total validation images are " + str(len(validloader)))
@@ -84,18 +85,18 @@ def train_network(args):
     else:
         model = create_model(args)
 
-    loss_fn = nn.NLLLoss()
-    optimizer = optim.Adam(model.classifier.parameters(), lr=args.lr)
-
-    if args.gpu and torch.cuda.is_available():
+    if torch.cuda.is_available():
         model.cuda()
         print('Training model on GPU', "\n")
 
-    trainloader, validloader, testloader = prepare_dataloaders()
+    loss_fn = nn.NLLLoss()
+    optimizer = optim.Adam(model.classifier.parameters(), lr=args.lr)
+
     steps = 0
     running_loss = 0
-    validation_frequency = 500
+    validation_frequency = 30
 
+    trainloader, validloader, testloader = prepare_dataloaders()
     try:
         for e in range(args.epochs):
 
@@ -103,7 +104,9 @@ def train_network(args):
 
                 steps += 1
                 inputs = Variable(images)
+                inputs = inputs.cuda()
                 targets = Variable(labels)
+                targets = targets.cuda()
                 optimizer.zero_grad()
                 output = model.forward(inputs)
                 loss = loss_fn(output, targets)
@@ -120,13 +123,15 @@ def train_network(args):
                     for ii, (image, label) in enumerate(validloader):
 
                         inp = Variable(image)
+                        inp = inp.cuda()
                         label = Variable(label)
+                        label = label.cuda()
                         out = model.forward(inp)
                         val_loss += loss_fn(out, label).data
                         ps = torch.exp(out).data
                         equality = (label.data == ps.max(1)[1])
                         accuracy += equality.type_as(torch.FloatTensor()).mean()
-                        print(ii + 1, "image validation done")
+                        # print(ii + 1, "image validation done")
 
                     print("Training Loss: {:.3f}.. ".format(running_loss / validation_frequency),
                           "Validation Loss: {:.3f}.. ".format(val_loss / len(validloader)),
@@ -135,7 +140,7 @@ def train_network(args):
                     running_loss = 0
                     model.train()
 
-                print(str(steps) + " Image trained")
+                # print(str(steps) + " Image trained")
 
     except KeyboardInterrupt:
         pass
@@ -149,13 +154,14 @@ def train_network(args):
     for ii, (images, labels) in enumerate(testloader):
 
         inputs = Variable(images)
+        inputs = inputs.cuda()
         labels = Variable(labels)
-        print("debug")
+        labels = labels.cuda()
         output = model.forward(inputs)
-        print("debug")
         test_loss += loss_fn(output, labels).data
         ps = torch.exp(output).data
         equality = (labels.data == ps.max(1)[1])
+        print("this: "+ str(equality.type_as(torch.FloatTensor()).mean()))
         accuracy += equality.type_as(torch.FloatTensor()).mean()
         print(ii, "Images tested")
 
@@ -181,11 +187,10 @@ def train_network(args):
 def main():
 
     parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('--res_training', type=bool, default=True, help='Train from checkpoint')
-    parser.add_argument('--gpu', type=bool, default=True, help='Want to use GPU?')
+    parser.add_argument('--res_training', type=bool, default=False, help='Train from checkpoint')
     parser.add_argument('--arch', type=str, default='vgg16', help='vgg16 or densenet121')
     parser.add_argument('--lr', type=float, default=0.001, help='What is learning rate?')
-    parser.add_argument('--epochs', type=int, default=2, help='number of epochs')
+    parser.add_argument('--epochs', type=int, default=5, help='number of epochs')
     parser.add_argument('--hidden_units', type=list, default=[500], help='hidden units for fc')
     parser.add_argument('--mapping', type=str, default='cat_to_name.json', help='mapping file')
     args = parser.parse_args()

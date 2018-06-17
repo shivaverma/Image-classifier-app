@@ -1,5 +1,7 @@
 # Imports here
 import json
+import os
+import random
 import torch
 import argparse
 import numpy as np
@@ -45,8 +47,9 @@ def load_checkpoint(args):
     model.load_state_dict(checkpoint['state_dict'])
 
     # Check whether to train on gpu or not
-    if args.gpu and torch.cuda.is_available():
+    if torch.cuda.is_available():
         model.cuda()
+        print('Running on GPU')
     else:
         print('Running on CPU')
 
@@ -87,11 +90,13 @@ def predict(image_path, model, idx_to_class, cat_to_name, topk=5):
     image = Image.open(image_path)
     image = process_image(image)
     image = torch.FloatTensor([image])
+    image = image.cuda()
 
     model.eval()    # Evaluation mode
 
     output = model.forward(Variable(image))
-    ps = torch.exp(output).data.numpy()[0]
+    ps = torch.exp(output).data.cuda()
+    ps = ps.cpu().numpy()[0]
 
     topk_index = np.argsort(ps)[-topk:][::-1]
     topk_class = [idx_to_class[x] for x in topk_index]
@@ -105,7 +110,7 @@ def create_plot(cl, pb, path, maps):
 
     image = Image.open(path)
 
-    fig, (ax1, ax2) = pyplot.subplots(figsize=(6, 8), ncols=1, nrows=2)
+    fig, (ax1, ax2) = pyplot.subplots(figsize=(9, 8), ncols=1, nrows=2)
     flower_name = maps[path.split('/')[-2]]
     ax1.set_title(flower_name)
     ax1.imshow(image)
@@ -120,11 +125,10 @@ def create_plot(cl, pb, path, maps):
     pyplot.show()
 
 
-def main():
+def main(temp):
 
-    temp = 'flower_data/test/78/image_01830.jpg'
     parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('--gpu', type=bool, default=False, help='Want to use GPU')
+    parser.add_argument('--gpu', type=bool, default=True, help='Want to use GPU')
     parser.add_argument('--topk', type=int, default=5, help='Top K probabilities')
     parser.add_argument('--image_path', type=str, default=temp, help='Path of image to predicted')
     parser.add_argument('--mapping', type=str, default='cat_to_name.json', help='mapping file')
@@ -145,4 +149,13 @@ def main():
 
 if __name__ == "__main__":
 
-    main()
+    test_set = 10
+
+    for i in range(test_set):
+        path = 'flower_data/test/'
+        rand = np.random.random_integers(1, 101)
+        path = path + str(rand) + '/'
+        listing = os.listdir(path)
+        list_fl = [x for x in listing]
+        file = random.choice(list_fl)
+        main(path+file)
