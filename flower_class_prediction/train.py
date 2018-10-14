@@ -75,6 +75,7 @@ def create_model(args):
     print("Layers: ", OrderedDict(classier_net), "\n")
     classifier = nn.Sequential(OrderedDict(classier_net))
     model.classifier = classifier
+    print(model)
     return model
 
 
