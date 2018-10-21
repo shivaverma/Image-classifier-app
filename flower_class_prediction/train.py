@@ -32,7 +32,7 @@ def prepare_dataloaders():
 
     # Using the image datasets and the transforms, define the dataloaders
     # data will be shuffled for each epoch, 1 images from batch of five in test data
-    trainloader = torch.utils.data.DataLoader(train_data, batch_size=100, shuffle=True)
+    trainloader = torch.utils.data.DataLoader(train_data, batch_size=50, shuffle=True)
     validloader = torch.utils.data.DataLoader(valid_data, batch_size=20, shuffle=True)
     testloader = torch.utils.data.DataLoader(test_data, batch_size=1, shuffle=True)
 
